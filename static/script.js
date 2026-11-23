@@ -174,7 +174,221 @@ function addRandomTile() {
 /* ==================================================
    Movement and merging
    ================================================== */
+const TILE_SLIDE_DURATION = 110;
 
+function getMovementLines(direction) {
+    const lines = [];
+
+    if (direction === "left") {
+        for (let row = 0; row < 4; row += 1) {
+            lines.push([
+                { row: row, column: 0 },
+                { row: row, column: 1 },
+                { row: row, column: 2 },
+                { row: row, column: 3 }
+            ]);
+        }
+    } else if (direction === "right") {
+        for (let row = 0; row < 4; row += 1) {
+            lines.push([
+                { row: row, column: 3 },
+                { row: row, column: 2 },
+                { row: row, column: 1 },
+                { row: row, column: 0 }
+            ]);
+        }
+    } else if (direction === "up") {
+        for (let column = 0; column < 4; column += 1) {
+            lines.push([
+                { row: 0, column: column },
+                { row: 1, column: column },
+                { row: 2, column: column },
+                { row: 3, column: column }
+            ]);
+        }
+    } else if (direction === "down") {
+        for (let column = 0; column < 4; column += 1) {
+            lines.push([
+                { row: 3, column: column },
+                { row: 2, column: column },
+                { row: 1, column: column },
+                { row: 0, column: column }
+            ]);
+        }
+    }
+
+    return lines;
+}
+
+
+function createMovementPlan(oldBoard, direction) {
+    const moves = [];
+    const mergedTargets = [];
+
+    const lines = getMovementLines(direction);
+
+    for (const line of lines) {
+        const occupiedCells = [];
+
+        for (const position of line) {
+            const value =
+                oldBoard[position.row][position.column];
+
+            if (value !== 0) {
+                occupiedCells.push({
+                    value: value,
+                    source: position
+                });
+            }
+        }
+
+        let sourceIndex = 0;
+        let destinationIndex = 0;
+
+        while (sourceIndex < occupiedCells.length) {
+            const current = occupiedCells[sourceIndex];
+
+            const next =
+                occupiedCells[sourceIndex + 1];
+
+            const destination =
+                line[destinationIndex];
+
+            if (
+                next &&
+                current.value === next.value
+            ) {
+                moves.push({
+                    value: current.value,
+                    source: current.source,
+                    destination: destination
+                });
+
+                moves.push({
+                    value: next.value,
+                    source: next.source,
+                    destination: destination
+                });
+
+                mergedTargets.push(destination);
+
+                sourceIndex += 2;
+            } else {
+                moves.push({
+                    value: current.value,
+                    source: current.source,
+                    destination: destination
+                });
+
+                sourceIndex += 1;
+            }
+
+            destinationIndex += 1;
+        }
+    }
+
+    return {
+        moves: moves,
+        mergedTargets: mergedTargets
+    };
+}
+function animateTileMovement(plan, finished) {
+    const tiles =
+        boardElement.querySelectorAll(".tile");
+
+    const boardRectangle =
+        boardElement.getBoundingClientRect();
+
+    const animationLayer =
+        document.createElement("div");
+
+    animationLayer.className =
+        "tile-animation-layer";
+
+    boardElement.classList.add("is-sliding");
+    boardElement.appendChild(animationLayer);
+
+    for (const move of plan.moves) {
+        const sourceIndex =
+            move.source.row * 4 +
+            move.source.column;
+
+        const destinationIndex =
+            move.destination.row * 4 +
+            move.destination.column;
+
+        const sourceRectangle =
+            tiles[sourceIndex].getBoundingClientRect();
+
+        const destinationRectangle =
+            tiles[destinationIndex].getBoundingClientRect();
+
+        const movingTile =
+            document.createElement("div");
+
+        movingTile.className =
+            `tile tile-${move.value} moving-tile`;
+
+        movingTile.textContent = move.value;
+
+        movingTile.style.width =
+            `${sourceRectangle.width}px`;
+
+        movingTile.style.height =
+            `${sourceRectangle.height}px`;
+
+        movingTile.style.left =
+            `${sourceRectangle.left -
+            boardRectangle.left}px`;
+
+        movingTile.style.top =
+            `${sourceRectangle.top -
+            boardRectangle.top}px`;
+
+        animationLayer.appendChild(movingTile);
+
+        const movementX =
+            destinationRectangle.left -
+            sourceRectangle.left;
+
+        const movementY =
+            destinationRectangle.top -
+            sourceRectangle.top;
+
+        window.requestAnimationFrame(function () {
+    window.requestAnimationFrame(function () {
+        movingTile.style.transform =
+            `translate3d(${movementX}px, ${movementY}px, 0)`;
+    });
+});
+    }
+
+    window.setTimeout(function () {
+        animationLayer.remove();
+        boardElement.classList.remove("is-sliding");
+
+        for (const target of plan.mergedTargets) {
+            const tileIndex =
+                target.row * 4 + target.column;
+
+            const tile = tiles[tileIndex];
+
+            tile.classList.remove("tile-merge-pop");
+
+            void tile.offsetWidth;
+
+            tile.classList.add("tile-merge-pop");
+
+            window.setTimeout(function () {
+                tile.classList.remove(
+                    "tile-merge-pop"
+                );
+            }, 145);
+        }
+
+        finished();
+    }, TILE_SLIDE_DURATION);
+}
 function mergeRowLeft(row) {
     const numbers = row.filter(function (number) {
         return number !== 0;
@@ -299,6 +513,9 @@ function performMove(direction) {
 
     const oldBoard = copyBoard(board);
 
+    const movementPlan =
+        createMovementPlan(oldBoard, direction);
+
     let mergedTiles = [];
 
     if (direction === "left") {
@@ -321,32 +538,49 @@ function performMove(direction) {
 
     addRandomTile();
 
-    updateBoardDisplay(oldBoard);
+    /*
+       The finished board is prepared underneath.
+       The moving copies animate above it.
+    */
+
+    updateBoardDisplay();
     updateScoreDisplay();
     saveGame();
 
-    if (mergedTiles.length > 0) {
-        playMergeChord(mergedTiles);
-        showMergeNumbers(mergedTiles);
+    animateTileMovement(
+        movementPlan,
+        function () {
+            if (mergedTiles.length > 0) {
+                playMergeChord(mergedTiles);
+                showMergeNumbers(mergedTiles);
 
-        const largestMerge =
-            Math.max(...mergedTiles);
+                const largestMerge =
+                    Math.max(...mergedTiles);
 
-        showMilestone(largestMerge);
-    }
+                showMilestone(largestMerge);
+            }
 
-    if (hasReached2048() && !wonAnnounced) {
-        wonAnnounced = true;
-        saveGame();
+            if (
+                hasReached2048() &&
+                !wonAnnounced
+            ) {
+                wonAnnounced = true;
+                saveGame();
 
-        window.setTimeout(showVictory, 450);
-    } else if (isGameOver()) {
-        window.setTimeout(showGameOver, 180);
-    }
+                window.setTimeout(
+                    showVictory,
+                    280
+                );
+            } else if (isGameOver()) {
+                window.setTimeout(
+                    showGameOver,
+                    150
+                );
+            }
 
-    window.setTimeout(function () {
-        moveInProgress = false;
-    }, 90);
+            moveInProgress = false;
+        }
+    );
 }
 
 
