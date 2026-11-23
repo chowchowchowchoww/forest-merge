@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Forest Merge</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+</head>
+
+<body>
+    <div class="forest-decoration leaves-left" aria-hidden="true">
+        🍃
+    </div>
+
+    <div class="forest-decoration leaves-right" aria-hidden="true">
+        🌿
+    </div>
+
+    <main class="game-container">
+        <header class="game-header">
+            <div class="brand">
+                <div class="mascot-frame">
+                    <img
+                        src="{{ url_for('static', filename='header-meowl.png') }}"
+                        alt="Forest Merge Meowl mascot"
+                    >
+                </div>
+
+                <div>
+                    <p class="eyebrow">A cozy number puzzle</p>
+                    <h1>Forest Merge</h1>
+
+                    <p class="subtitle">
+                        Combine matching tiles and reach 2048.
+                    </p>
+                </div>
+            </div>
+
+            <div class="score-area">
+                <div class="score-card">
+                    <span>Score</span>
+                    <strong id="score">{{ score }}</strong>
+                </div>
+
+                <div class="score-card best-card">
+                    <span>Best</span>
+                    <strong id="best-score">0</strong>
+                </div>
+            </div>
+        </header>
+
+        <section class="game-panel">
+            <div class="toolbar">
+                <div class="game-status">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Game in progress</span>
+                </div>
+
+                <div class="toolbar-buttons">
+                    <button
+                        id="help-button"
+                        class="small-button"
+                        type="button"
+                        aria-label="Open tutorial"
+                    >
+                        ? Help
+                    </button>
+
+                    <button
+                        id="sound-button"
+                        class="small-button"
+                        type="button"
+                        aria-label="Mute sounds"
+                    >
+                        🔊
+                    </button>
+
+                    <button id="new-game-button" type="button">
+                        ↻ New Game
+                    </button>
+                </div>
+            </div>
+
+            <div
+                id="message"
+                role="status"
+                aria-live="polite"
+            ></div>
+
+            <div class="board-area">
+                <div
+                    id="board"
+                    class="board"
+                    aria-label="Forest Merge game board"
+                >
+                    {% for row in board %}
+                        {% for number in row %}
+                            <div class="tile tile-{{ number }}">
+                                {% if number != 0 %}
+                                    {{ number }}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% endfor %}
+                </div>
+
+                <div
+                    id="milestone-effect"
+                    class="milestone-effect"
+                    aria-hidden="true"
+                >
+                    <div id="effect-glow"></div>
+
+                    <img
+                        id="effect-image"
+                        src=""
+                        alt=""
+                    >
+
+                    <div id="effect-number"></div>
+
+                    <div class="effect-particles">
+                        <span>🍃</span>
+                        <span>✨</span>
+                        <span>🍂</span>
+                        <span>✨</span>
+                        <span>🌿</span>
+                    </div>
+                </div>
+
+                <div
+                    id="game-over-scene"
+                    class="game-over-scene"
+                    aria-hidden="true"
+                >
+                    <img
+                        src="{{ url_for('static', filename='game-over-meowl.png') }}"
+                        alt=""
+                    >
+
+                    <h2>No more moves</h2>
+
+                    <p>Meowl is ready to try again.</p>
+
+                    <button
+                        id="game-over-new-game"
+                        type="button"
+                    >
+                        Start New Game
+                    </button>
+                </div>
+            </div>
+
+            <div class="instructions">
+                <span class="key">W</span>
+
+                <span class="key-row">
+                    <span class="key">A</span>
+                    <span class="key">S</span>
+                    <span class="key">D</span>
+                </span>
+
+                <span class="instruction-text">
+                    Arrow keys, WASD, or swipe
+                </span>
+            </div>
+        </section>
+    </main>
+
+    <!-- Tutorial -->
+
+    <div
+        id="tutorial-overlay"
+        class="modal-overlay hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tutorial-title"
+    >
+        <section class="tutorial-card">
+            <button
+                id="close-tutorial"
+                class="close-button"
+                type="button"
+                aria-label="Close tutorial"
+            >
+                ×
+            </button>
+
+            <div class="tutorial-progress">
+                <span class="tutorial-dot active"></span>
+                <span class="tutorial-dot"></span>
+                <span class="tutorial-dot"></span>
+            </div>
+
+            <div class="tutorial-page active" data-page="0">
+                <div class="tutorial-icon">↕</div>
+
+                <h2 id="tutorial-title">Move the tiles</h2>
+
+                <p>
+                    Use the arrow keys or WASD on a computer.
+                    On a phone, swipe across the board.
+                </p>
+
+                <div class="tutorial-keys">
+                    <span>W</span>
+
+                    <div>
+                        <span>A</span>
+                        <span>S</span>
+                        <span>D</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tutorial-page" data-page="1">
+                <div class="tutorial-icon">2 + 2</div>
+
+                <h2>Combine matching numbers</h2>
+
+                <p>
+                    When two matching tiles touch, they merge into
+                    one larger tile and increase your score.
+                </p>
+
+                <div class="merge-example">
+                    <span>2</span>
+                    <strong>+</strong>
+                    <span>2</span>
+                    <strong>→</strong>
+                    <span class="result-tile">4</span>
+                </div>
+            </div>
+
+            <div class="tutorial-page" data-page="2">
+                <div class="tutorial-icon">2048</div>
+
+                <h2>Grow the forest</h2>
+
+                <p>
+                    Plan your moves carefully, unlock Meowl
+                    celebrations, and try to create the 2048 tile.
+                </p>
+
+                <img
+                    class="tutorial-meowl"
+                    src="{{ url_for('static', filename='peek-meowl.png') }}"
+                    alt=""
+                >
+            </div>
+
+            <div class="tutorial-actions">
+                <button
+                    id="tutorial-back"
+                    class="secondary-button"
+                    type="button"
+                >
+                    Back
+                </button>
+
+                <button
+                    id="tutorial-skip"
+                    class="text-button"
+                    type="button"
+                >
+                    Skip
+                </button>
+
+                <button
+                    id="tutorial-next"
+                    type="button"
+                >
+                    Next
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <!-- 2048 victory -->
+
+    <div
+        id="victory-overlay"
+        class="modal-overlay hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="victory-title"
+    >
+        <section class="victory-card">
+            <div class="rainbow" aria-hidden="true"></div>
+
+            <div class="victory-sparkles" aria-hidden="true">
+                <span>✨</span>
+                <span>🌸</span>
+                <span>✨</span>
+                <span>🌼</span>
+                <span>✨</span>
+            </div>
+
+            <img
+                src="{{ url_for('static', filename='victory-meowl.png') }}"
+                alt=""
+            >
+
+            <h2 id="victory-title">You reached 2048!</h2>
+
+            <p>
+                The forest is celebrating your achievement.
+            </p>
+
+            <div class="victory-actions">
+                <button
+                    id="continue-button"
+                    type="button"
+                >
+                    Continue Playing
+                </button>
+
+                <button
+                    id="victory-new-game"
+                    class="secondary-button"
+                    type="button"
+                >
+                    New Game
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
